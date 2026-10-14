@@ -1,0 +1,427 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CorrespondenceDirection {
+  INCOMING
+  OUTGOING
+  INTERNAL
+  EXTERNAL_DRAFT
+}
+
+enum CorrespondenceType {
+  LETTER
+  NOTE_VERBALE
+  MEMORANDUM
+  EMAIL
+  DIRECTIVE
+  REPORT
+  INVITATION
+  AGREEMENT
+  OTHER
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ConfidentialityLevel {
+  NORMAL
+  CONFIDENTIAL
+  RESTRICTED
+  SECRET
+}
+
+enum CorrespondenceStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_APPROVAL
+  APPROVED
+  DISPATCHED
+  CLOSED
+  ARCHIVED
+}
+
+enum ActionStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum RetentionAction {
+  REVIEW
+  DESTROY
+  TRANSFER
+  PERMANENT
+}
+
+enum NotificationKind {
+  ASSIGNMENT
+  REVIEW_REQUEST
+  APPROVAL_REQUEST
+  OVERDUE
+  WORKFLOW_UPDATE
+}
+
+model User {
+  id                String           @id @default(uuid()) @db.Uuid
+  name              String           @db.VarChar(160)
+  email             String           @unique @db.VarChar(320)
+  passwordHash      String           @map("password_hash") @db.VarChar(255)
+  isActive          Boolean          @default(true) @map("is_active")
+  roleId            String           @map("role_id") @db.Uuid
+  departmentId      String?          @map("department_id") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  role              Role             @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  department        Department?      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  createdCorrespondence Correspondence[] @relation("CorrespondenceCreator")
+  assignedCorrespondence Correspondence[] @relation("CorrespondenceAssignee")
+  auditLogs         AuditLog[]
+  workflowActions   Workflow[]       @relation("WorkflowActor")
+  uploadedDocuments Document[]       @relation("DocumentUploader")
+  assignmentsMade   Assignment[]     @relation("AssignmentActor")
+  assignmentsReceived Assignment[]   @relation("AssignmentAssignee")
+  assignedActions   ActionItem[]     @relation("ActionItemAssignee")
+  approvals         Approval[]
+  correspondenceActions WorkflowAction[] @relation("WorkflowActionActor")
+  archivesCreated  Correspondence[]  @relation("CorrespondenceArchiver")
+  notifications     Notification[]
+  retentionPolicies RetentionPolicy[] @relation("RetentionPolicyAuthor")
+
+  @@index([departmentId])
+  @@index([roleId])
+  @@map("users")
+}
+
+model Role {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @unique @db.VarChar(80)
+  description String?      @db.VarChar(255)
+  users       User[]
+  permissions Permission[] @relation("RolePermissions")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(120)
+  description String?  @db.VarChar(255)
+  roles       Role[]   @relation("RolePermissions")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("permissions")
+}
+
+model Department {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @unique @db.VarChar(160)
+  code            String           @unique @db.VarChar(40)
+  description     String?          @db.VarChar(500)
+  isActive        Boolean          @default(true) @map("is_active")
+  users           User[]
+  correspondence  Correspondence[]
+  assignments     Assignment[]
+  actionItems     ActionItem[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@map("departments")
+}
+
+model Correspondence {
+  id                String                  @id @default(uuid()) @db.Uuid
+  referenceNumber   String                  @unique @map("reference_number") @db.VarChar(40)
+  documentNumber    String?                 @map("document_number") @db.VarChar(100)
+  direction         CorrespondenceDirection
+  type              CorrespondenceType
+  subject           String                  @db.VarChar(500)
+  sender            String                  @db.VarChar(300)
+  recipient         String                  @db.VarChar(300)
+  organization      String?                 @db.VarChar(300)
+  countryMission    String?                 @map("country_mission") @db.VarChar(200)
+  departmentId      String                  @map("department_id") @db.Uuid
+  priority          Priority                @default(NORMAL)
+  confidentiality   ConfidentialityLevel    @default(NORMAL)
+  status            CorrespondenceStatus    @default(OPEN)
+  dateReceived      DateTime?               @map("date_received") @db.Date
+  dateSent          DateTime?               @map("date_sent") @db.Date
+  dueDate           DateTime?               @map("due_date") @db.Date
+  dateClosed        DateTime?               @map("date_closed") @db.Date
+  currentActionLocation String?             @map("current_action_location") @db.VarChar(500)
+  fileLocation      String?                 @map("file_location") @db.VarChar(1000)
+  notes             String?                 @db.VarChar(4000)
+  createdById       String                  @map("created_by_id") @db.Uuid
+  assignedToId      String?                 @map("assigned_to_id") @db.Uuid
+  archivedAt        DateTime?               @map("archived_at")
+  department        Department              @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  createdBy         User                    @relation("CorrespondenceCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedTo        User?                   @relation("CorrespondenceAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+  documents         Document[]
+  workflows         Workflow[]
+  auditLogs         AuditLog[]
+  actions           WorkflowAction[]
+  assignments       Assignment[]
+  actionItems       ActionItem[]
+  approvals         Approval[]
+  notifications     Notification[]
+  archivedById      String?                 @map("archived_by_id") @db.Uuid
+  retentionCategory String?                 @map("retention_category") @db.VarChar(120)
+  archivedBy        User?                   @relation("CorrespondenceArchiver", fields: [archivedById], references: [id], onDelete: Restrict)
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  @@index([subject])
+  @@index([sender])
+  @@index([recipient])
+  @@index([countryMission])
+  @@index([organization])
+  @@index([departmentId, status])
+  @@index([direction, type, priority])
+  @@index([confidentiality])
+  @@index([assignedToId, status])
+  @@index([createdById])
+  @@index([dateReceived])
+  @@index([dateSent])
+  @@index([dueDate])
+  @@index([archivedAt])
+  @@index([archivedById])
+  @@index([status, dueDate])
+  @@map("correspondence")
+}
+
+model Document {
+  id               String         @id @default(uuid()) @db.Uuid
+  correspondenceId String         @map("correspondence_id") @db.Uuid
+  fileName         String         @map("file_name") @db.VarChar(255)
+  originalFileName String?        @map("original_file_name") @db.VarChar(255)
+  mimeType         String         @map("mime_type") @db.VarChar(120)
+  storageKey       String         @unique @map("storage_key") @db.VarChar(500)
+  fileSize         BigInt         @map("file_size")
+  checksum         String         @db.VarChar(128)
+  version          Int            @default(1)
+  classification   ConfidentialityLevel @default(NORMAL)
+  uploadedById     String?        @map("uploaded_by_id") @db.Uuid
+  actionId         String?        @map("action_id") @db.Uuid
+  correspondence   Correspondence @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+  uploadedBy       User?          @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  action           ActionItem?    @relation("ActionEvidenceDocuments", fields: [actionId], references: [id], onDelete: Restrict)
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([correspondenceId, originalFileName, version])
+  @@index([classification])
+  @@index([uploadedById])
+  @@index([actionId])
+  @@map("documents")
+}
+
+model Workflow {
+  id               String         @id @default(uuid()) @db.Uuid
+  correspondenceId String         @map("correspondence_id") @db.Uuid
+  actorId          String?        @map("actor_id") @db.Uuid
+  fromStatus       CorrespondenceStatus? @map("from_status")
+  toStatus         CorrespondenceStatus @map("to_status")
+  note             String?        @db.VarChar(1000)
+  correspondence   Correspondence @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+  actor            User?          @relation("WorkflowActor", fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([correspondenceId, createdAt])
+  @@index([actorId])
+  @@map("workflows")
+}
+
+model WorkflowDefinition {
+  id          String         @id @default(uuid()) @db.Uuid
+  name        String         @unique @db.VarChar(120)
+  description String?        @db.VarChar(500)
+  isActive    Boolean        @default(false) @map("is_active")
+  steps       WorkflowStep[]
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@map("workflow_definitions")
+}
+
+model WorkflowStep {
+  id                  String             @id @default(uuid()) @db.Uuid
+  definitionId        String             @map("definition_id") @db.Uuid
+  order               Int
+  status              CorrespondenceStatus
+  requiredRole        String?            @map("required_role") @db.VarChar(80)
+  requiresComment     Boolean            @default(false) @map("requires_comment")
+  allowedNextStates   CorrespondenceStatus[] @default([]) @map("allowed_next_states")
+  definition          WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  @@unique([definitionId, order])
+  @@unique([definitionId, status])
+  @@index([status])
+  @@map("workflow_steps")
+}
+
+model WorkflowAction {
+  id               String              @id @default(uuid()) @db.Uuid
+  correspondenceId String              @map("correspondence_id") @db.Uuid
+  actorId          String              @map("actor_id") @db.Uuid
+  fromStatus       CorrespondenceStatus @map("from_status")
+  toStatus         CorrespondenceStatus @map("to_status")
+  comment          String?             @db.VarChar(2000)
+  ipAddress        String?             @map("ip_address") @db.VarChar(45)
+  correspondence   Correspondence      @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+  actor            User                @relation("WorkflowActionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt        DateTime            @default(now()) @map("created_at")
+
+  @@index([correspondenceId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([toStatus, createdAt])
+  @@map("workflow_actions")
+}
+
+model Assignment {
+  id               String         @id @default(uuid()) @db.Uuid
+  correspondenceId String         @map("correspondence_id") @db.Uuid
+  departmentId     String         @map("department_id") @db.Uuid
+  assignedToId     String?        @map("assigned_to_id") @db.Uuid
+  assignedById     String         @map("assigned_by_id") @db.Uuid
+  comment          String?        @db.VarChar(1000)
+  correspondence   Correspondence @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+  department       Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  assignedTo       User?          @relation("AssignmentAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+  assignedBy       User           @relation("AssignmentActor", fields: [assignedById], references: [id], onDelete: Restrict)
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([correspondenceId, createdAt])
+  @@index([departmentId, createdAt])
+  @@index([assignedToId, createdAt])
+  @@map("assignments")
+}
+
+model ActionItem {
+  id                 String              @id @default(uuid()) @db.Uuid
+  correspondenceId   String              @map("correspondence_id") @db.Uuid
+  departmentId       String              @map("department_id") @db.Uuid
+  assignedToId       String?             @map("assigned_to_id") @db.Uuid
+  dateAssigned       DateTime            @default(now()) @map("date_assigned") @db.Date
+  dueDate            DateTime            @map("due_date") @db.Date
+  requiredAction     String              @map("required_action") @db.VarChar(2000)
+  priority           Priority            @default(NORMAL)
+  status             ActionStatus        @default(OPEN)
+  completionDate     DateTime?           @map("completion_date") @db.Date
+  remarks            String?             @db.VarChar(2000)
+  correspondence     Correspondence      @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+  department         Department          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  assignedTo         User?               @relation("ActionItemAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+  evidenceDocuments  Document[]          @relation("ActionEvidenceDocuments")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  @@index([correspondenceId, status])
+  @@index([departmentId, status, dueDate])
+  @@index([assignedToId, status, dueDate])
+  @@index([dueDate, status])
+  @@map("action_items")
+}
+
+model Approval {
+  id               String         @id @default(uuid()) @db.Uuid
+  correspondenceId String         @map("correspondence_id") @db.Uuid
+  actorId          String         @map("actor_id") @db.Uuid
+  decision         String         @db.VarChar(20)
+  comment          String?        @db.VarChar(2000)
+  correspondence   Correspondence @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+  actor            User           @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([correspondenceId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("approvals")
+}
+
+model AuditLog {
+  id               String          @id @default(uuid()) @db.Uuid
+  actorId          String?         @map("actor_id") @db.Uuid
+  action           String          @db.VarChar(100)
+  entity           String          @db.VarChar(100)
+  entityId         String?         @map("entity_id") @db.VarChar(100)
+  metadata         Json?
+  actor            User?           @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  correspondence   Correspondence? @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+  correspondenceId String?         @map("correspondence_id") @db.Uuid
+  ipAddress        String?         @map("ip_address") @db.VarChar(45)
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  @@index([actorId, createdAt])
+  @@index([entity, entityId, createdAt])
+  @@index([correspondenceId, createdAt])
+  @@map("audit_logs")
+}
+
+model ReferenceSequence {
+  year      Int      @id
+  lastValue Int      @default(0) @map("last_value")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("reference_sequences")
+}
+
+model DocumentVersionSequence {
+  correspondenceId String   @map("correspondence_id") @db.Uuid
+  originalFileName  String   @map("original_file_name") @db.VarChar(255)
+  lastValue         Int      @default(0) @map("last_value")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@id([correspondenceId, originalFileName])
+  @@map("document_version_sequences")
+}
+
+model RetentionPolicy {
+  id                  String          @id @default(uuid()) @db.Uuid
+  name                String          @unique @db.VarChar(120)
+  category            String          @map("retention_category") @db.VarChar(120)
+  retentionDays       Int?            @map("retention_days")
+  action              RetentionAction @default(REVIEW)
+  classification      ConfidentialityLevel?
+  isActive            Boolean         @default(true) @map("is_active")
+  createdById         String          @map("created_by_id") @db.Uuid
+  createdBy           User            @relation("RetentionPolicyAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  @@index([isActive, category])
+  @@map("retention_policies")
+}
+
+model Notification {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @map("user_id") @db.Uuid
+  correspondenceId String           @map("correspondence_id") @db.Uuid
+  kind             NotificationKind
+  message          String           @db.VarChar(500)
+  deliveredAt      DateTime?        @map("delivered_at")
+  readAt           DateTime?        @map("read_at")
+  dedupeKey        String?          @unique @map("dedupe_key") @db.VarChar(200)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  correspondence   Correspondence  @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  @@index([userId, readAt, createdAt])
+  @@index([correspondenceId, createdAt])
+  @@index([kind, createdAt])
+  @@map("notifications")
+}

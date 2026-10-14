@@ -1,0 +1,98 @@
+services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:?Set the separately managed database bootstrap user}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set the database bootstrap password}
+      APP_DATABASE_USER: ${APP_DATABASE_USER:?Set the least-privileged application database role}
+      APP_DATABASE_PASSWORD: ${APP_DATABASE_PASSWORD:?Set the application database password}
+      MIGRATION_DATABASE_USER: ${MIGRATION_DATABASE_USER:?Set the restricted schema migration role}
+      MIGRATION_DATABASE_PASSWORD: ${MIGRATION_DATABASE_PASSWORD:?Set the schema migration password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../deploy/postgres-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL with URL-encoded credentials}
+      JWT_SECRET: ${JWT_SECRET:?Set a randomly generated JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:?Set CLIENT_ORIGIN to the HTTPS hostname}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+      DOCUMENT_STORAGE_DIR: /var/lib/mofaic/documents
+    volumes:
+      - private-documents:/var/lib/mofaic/documents
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - edge
+      - data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  migrations:
+    profiles: ["migration"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: migrations
+    restart: "no"
+    environment:
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?Set MIGRATION_DATABASE_URL for migrations}
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - data
+
+  proxy:
+    build:
+      context: ..
+      dockerfile: deploy/nginx.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${TLS_CERTIFICATE_DIRECTORY:?Set TLS_CERTIFICATE_DIRECTORY}:/etc/nginx/certs:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - edge
+
+volumes:
+  postgres-data:
+  private-documents:
+
+networks:
+  edge:
+  data:
+    internal: true

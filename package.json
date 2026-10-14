@@ -1,0 +1,36 @@
+{
+  "name": "mofaic-digital-correspondence",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "pglite-server --db=./.data --port=5432 --max-connections=10 --run \"node scripts/dev-local-db.mjs\" --include-database-url",
+    "dev:app": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:postgres": "npm run dev:app",
+    "dev:local-db": "npm run dev",
+    "build": "npm run build -w server && npm run build -w client",
+    "test": "npm run test -w server",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "db:generate": "npm run db:generate -w server",
+    "db:migrate": "npm run db:migrate -w server",
+    "db:deploy": "npm run db:deploy -w server",
+    "db:seed": "npm run db:seed -w server",
+    "db:studio": "npm run db:studio -w server"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3",
+    "typescript-eslint": "^8.26.0"
+  }
+}
