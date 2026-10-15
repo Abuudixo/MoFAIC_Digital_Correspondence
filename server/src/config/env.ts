@@ -8,13 +8,26 @@ const localEnv = [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../.en
 );
 if (localEnv) dotenv.config({ path: localEnv });
 
+const optionalSetting = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().min(1).optional(),
+);
+
 const schema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     HOST: z.string().default("127.0.0.1"),
     PORT: z.coerce.number().int().positive().default(3000),
     CLIENT_ORIGIN: z.string().url().default("http://localhost:5173"),
+    DOCUMENT_STORAGE_DRIVER: z.enum(["local", "r2"]).default("local"),
     DOCUMENT_STORAGE_DIR: z.string().default(resolve(process.cwd(), ".private-documents")),
+    R2_ENDPOINT: z.preprocess(
+      (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+      z.string().url().optional(),
+    ),
+    R2_BUCKET: optionalSetting,
+    R2_ACCESS_KEY_ID: optionalSetting,
+    R2_SECRET_ACCESS_KEY: optionalSetting,
     DATABASE_URL: z.string().min(1),
     JWT_SECRET: z.string().min(32),
     JWT_EXPIRES_IN: z
@@ -43,6 +56,23 @@ const schema = z
         message: "Set all three bootstrap administrator variables together.",
         path: ["BOOTSTRAP_ADMIN_EMAIL"],
       });
+    }
+
+    if (value.DOCUMENT_STORAGE_DRIVER === "r2") {
+      for (const key of [
+        "R2_ENDPOINT",
+        "R2_BUCKET",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+      ] as const) {
+        if (!value[key]) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `${key} is required when DOCUMENT_STORAGE_DRIVER=r2.`,
+            path: [key],
+          });
+        }
+      }
     }
   });
 

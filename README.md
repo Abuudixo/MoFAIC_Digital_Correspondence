@@ -49,6 +49,42 @@ API binds to loopback by default. Run `npm test`, `npm run lint`, and
 for local development only; use PostgreSQL for shared or production
 environments.
 
+## Shared contributor development
+
+For contributors to use the same development records and uploaded documents,
+provision one PostgreSQL database (for example, Neon) and one private Cloudflare
+R2 bucket. The R2 bucket must not be public. Create an R2 API token scoped to
+that bucket with object read and write access.
+
+Configure each contributor's untracked `.env` with the same PostgreSQL
+`DATABASE_URL` and these R2 settings:
+
+```dotenv
+DOCUMENT_STORAGE_DRIVER=r2
+R2_ENDPOINT=https://ACCOUNT_ID.r2.cloudflarestorage.com
+R2_BUCKET=your-private-bucket-name
+R2_ACCESS_KEY_ID=your-r2-access-key-id
+R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
+```
+
+Keep the database URL and R2 credentials private; distribute them using an
+approved secrets manager, not GitHub or chat. On the shared database, the owner
+initializes the schema and fictional demo data once:
+
+```sh
+npm run db:generate
+npm run db:deploy
+npm run db:seed
+```
+
+Contributors then start their local client and API with `npm run dev:postgres`.
+Do not run the local embedded database startup command for this shared setup.
+This configures shared storage for new uploads; existing local database records
+and files are not copied automatically. Back up and migrate existing data and
+documents before switching contributors to the shared services. This shared
+development configuration is for fictional data only, not confidential
+ministry correspondence.
+
 In development, the seed includes fictional Protocol and Finance directors and
 officers, four sample correspondence records, and department notifications.
 Demo accounts use `Demo-Only-2026!` with emails

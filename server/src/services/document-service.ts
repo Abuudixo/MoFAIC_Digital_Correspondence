@@ -272,7 +272,7 @@ export async function downloadDocument(
     }
     throw error;
   }
-  const stream = documentStorage.open(document.storageKey);
+  const stream = await documentStorage.open(document.storageKey);
   await prisma.$transaction(async (tx) => {
     await writeAudit(tx, {
       actorId: actor.id,
