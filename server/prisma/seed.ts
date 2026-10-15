@@ -348,6 +348,7 @@ async function main() {
         where: { email: demoUser.email },
         update: {
           name: demoUser.name,
+          passwordHash: demoPasswordHash,
           roleId: role.id,
           departmentId: department.id,
           isActive: true,

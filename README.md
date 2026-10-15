@@ -51,7 +51,9 @@ officers, four sample correspondence records, and department notifications.
 Demo accounts use `Demo-Only-2026!` with emails
 `director.protocol@example.test`, `officer.protocol@example.test`,
 `director.finance@example.test`, and `officer.finance@example.test`. These
-accounts are not created outside development.
+accounts are not created outside development. If a demo password has been
+changed or no longer works, run `npm run db:seed` to restore the demo account
+credentials and sample data.
 
 The embedded database uses a small local migration runner because Prisma's
 migration engine is not compatible with the PGlite wire-protocol server.
