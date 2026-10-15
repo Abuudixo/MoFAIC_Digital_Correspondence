@@ -19,7 +19,10 @@ search, safe archiving, and audit logging.
 ## Getting started
 
 1. Copy `.env.example` to `.env`, set a unique `JWT_SECRET` of at least 32
-   characters, and never commit `.env`.
+   characters, and never commit `.env`. Uploaded development documents are
+   stored in the ignored `.private-documents/` directory by default. If you
+   override `DOCUMENT_STORAGE_DIR`, use an absolute path for your operating
+   system.
 2. Install dependencies with `npm install`.
 3. Start the app with `npm run dev`. This starts the local embedded database,
    applies pending migrations, generates Prisma Client, seeds development data,
