@@ -36,7 +36,12 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:?Set CLIENT_ORIGIN to the HTTPS hostname}
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
-      DOCUMENT_STORAGE_DIR: /var/lib/mofaic/documents
+      DOCUMENT_STORAGE_DRIVER: ${DOCUMENT_STORAGE_DRIVER:-local}
+      DOCUMENT_STORAGE_DIR: ${DOCUMENT_STORAGE_DIR:-/var/lib/mofaic/documents}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
     volumes:
       - private-documents:/var/lib/mofaic/documents
     depends_on:
