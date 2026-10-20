@@ -21,21 +21,11 @@ const classifications: ConfidentialityLevel[] = [
   ConfidentialityLevel.SECRET,
 ];
 
-function canReadClassification(
+export function canReadClassification(
   classification: ConfidentialityLevel,
   permissions: string[],
-  correspondenceDepartmentId: string,
-  actorDepartmentId?: string | null,
 ) {
-  if (classification === ConfidentialityLevel.NORMAL) {
-    return (
-      permissions.includes("correspondence:read:any") ||
-      permissions.includes("correspondence:read:assigned") ||
-      (Boolean(actorDepartmentId) &&
-        actorDepartmentId === correspondenceDepartmentId &&
-        permissions.includes("correspondence:read:department"))
-    );
-  }
+  if (classification === ConfidentialityLevel.NORMAL) return true;
   const permission: Record<Exclude<ConfidentialityLevel, "NORMAL">, string> = {
     CONFIDENTIAL: "correspondence:read:confidential",
     RESTRICTED: "correspondence:read:restricted",
@@ -48,19 +38,12 @@ function validateClassification(
   document: ConfidentialityLevel,
   correspondence: ConfidentialityLevel,
   permissions: string[],
-  correspondenceDepartmentId: string,
-  actorDepartmentId?: string | null,
 ) {
   if (classifications.indexOf(document) < classifications.indexOf(correspondence)) {
     throw new AppError(400, "Document classification cannot be less restrictive than its correspondence.");
   }
   if (
-    !canReadClassification(
-      document,
-      permissions,
-      correspondenceDepartmentId,
-      actorDepartmentId,
-    )
+    !canReadClassification(document, permissions)
   ) {
     throw new AppError(403, "You cannot access documents at this classification.");
   }
@@ -96,8 +79,6 @@ export async function uploadDocument(
     input.classification,
     correspondence.confidentiality,
     actor.permissions,
-    correspondence.departmentId,
-    actor.departmentId,
   );
   if (input.actionId) {
     const action = await prisma.actionItem.findFirst({
@@ -224,8 +205,6 @@ export async function listDocuments(
         document.classification,
         correspondence.confidentiality,
         actor.permissions,
-        correspondence.departmentId,
-        actor.departmentId,
       );
       return true;
     } catch (error) {
@@ -260,8 +239,6 @@ export async function downloadDocument(
     document.classification,
     document.correspondence.confidentiality,
     actor.permissions,
-    document.correspondence.departmentId,
-    actor.departmentId,
   );
 
   try {

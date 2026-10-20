@@ -57,6 +57,8 @@ async function main() {
       "departments:manage",
       "correspondence:create",
       "audit:read",
+      "documents:upload",
+      "documents:read",
       "workflow:manage",
       "retention:manage",
       "reports:read",
