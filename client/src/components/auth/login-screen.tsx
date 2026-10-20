@@ -7,8 +7,10 @@ import { Input } from "../ui/input";
 
 export function LoginScreen({
   onSignedIn,
+  message,
 }: {
   onSignedIn: (token: string | null) => void;
+  message?: string;
 }) {
   const [error, setError] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -66,6 +68,13 @@ export function LoginScreen({
         </p>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {message ? (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Session expired</AlertTitle>
+              <AlertDescription>{message}</AlertDescription>
+            </Alert>
+          ) : null}
           <div className="space-y-2">
             <label
               className="text-sm font-medium text-slate-700"

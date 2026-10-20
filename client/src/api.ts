@@ -1,4 +1,5 @@
 const accessTokenKey = "mofaic-access-token";
+export const unauthorizedEvent = "mofaic:unauthorized";
 
 export function getAccessToken() {
   const token = localStorage.getItem(accessTokenKey) ?? sessionStorage.getItem(accessTokenKey);
@@ -16,8 +17,17 @@ export function setAccessToken(value: string | null) {
   else localStorage.removeItem(accessTokenKey);
 }
 
+function handleUnauthorized(requestToken: string | null) {
+  if (!requestToken || accessToken !== requestToken) return;
+  setAccessToken(null);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(unauthorizedEvent));
+  }
+}
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
+  const requestToken = accessToken;
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -28,7 +38,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401) setAccessToken(null);
+    if (response.status === 401) handleUnauthorized(requestToken);
     throw new Error(
       typeof payload.error === "string" ? payload.error : "The request could not be completed.",
     );
@@ -38,9 +48,11 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export async function downloadFile(path: string, fileName: string) {
   const headers = new Headers();
+  const requestToken = accessToken;
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   const response = await fetch(`${import.meta.env.VITE_API_URL ?? ""}/api${path}`, { headers });
   if (!response.ok) {
+    if (response.status === 401) handleUnauthorized(requestToken);
     const payload = await response.json().catch(() => ({}));
     throw new Error(
       typeof payload.error === "string" ? payload.error : "The document could not be downloaded.",

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Area,
   AreaChart,
@@ -26,7 +26,12 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { api, getAccessToken, setAccessToken } from "../../api";
+import {
+  api,
+  getAccessToken,
+  setAccessToken,
+  unauthorizedEvent,
+} from "../../api";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -122,17 +127,34 @@ export type CorrespondenceItem = {
 };
 
 export function DashboardPage() {
+  const queryClient = useQueryClient();
   const [token, setTokenState] = React.useState<string | null>(() =>
     getAccessToken(),
   );
+  const [authMessage, setAuthMessage] = React.useState("");
 
   const handleAuthChange = (nextToken: string | null) => {
     setAccessToken(nextToken);
     setTokenState(nextToken);
+    if (nextToken) setAuthMessage("");
+    else queryClient.clear();
   };
 
+  React.useEffect(() => {
+    const handleUnauthorized = () => {
+      queryClient.clear();
+      setAuthMessage("Your session expired. Please sign in again.");
+      setTokenState(null);
+    };
+    window.addEventListener(unauthorizedEvent, handleUnauthorized);
+    return () =>
+      window.removeEventListener(unauthorizedEvent, handleUnauthorized);
+  }, [queryClient]);
+
   if (!token) {
-    return <LoginScreen onSignedIn={handleAuthChange} />;
+    return (
+      <LoginScreen message={authMessage} onSignedIn={handleAuthChange} />
+    );
   }
 
   return (
