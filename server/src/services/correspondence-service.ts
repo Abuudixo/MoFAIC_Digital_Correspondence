@@ -118,6 +118,18 @@ export function canRead(
   return false;
 }
 
+export function canCreateForDepartment(
+  targetDepartmentId: string,
+  actorDepartmentId: string | null | undefined,
+  permissions: string[],
+) {
+  return (
+    targetDepartmentId === actorDepartmentId ||
+    permissions.includes("correspondence:create:any") ||
+    permissions.includes("departments:manage")
+  );
+}
+
 function detailInclude() {
   return {
     department: { select: { id: true, name: true, code: true } },
@@ -200,10 +212,7 @@ export async function createCorrespondence(
       "You cannot register correspondence at this classification.",
     );
   }
-  if (
-    input.departmentId !== actorDepartmentId &&
-    !permissions.includes("departments:manage")
-  ) {
+  if (!canCreateForDepartment(input.departmentId, actorDepartmentId, permissions)) {
     throw new AppError(
       403,
       "You can only register correspondence for your own department.",

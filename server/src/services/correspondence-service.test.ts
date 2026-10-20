@@ -1,11 +1,48 @@
 import { describe, expect, it } from "vitest";
 import { ConfidentialityLevel } from "@prisma/client";
-import { canRead, formatReferenceNumber } from "./correspondence-service";
+import {
+  canCreateForDepartment,
+  canRead,
+  formatReferenceNumber,
+} from "./correspondence-service";
 
 describe("formatReferenceNumber", () => {
   it("formats reference numbers with a four-digit sequence", () => {
     expect(formatReferenceNumber(2026, 1)).toBe("COR-2026-0001");
     expect(formatReferenceNumber(2026, 12345)).toBe("COR-2026-12345");
+  });
+
+  describe("correspondence creation scope", () => {
+    const homeDepartmentId = "00000000-0000-4000-8000-000000000002";
+    const otherDepartmentId = "00000000-0000-4000-8000-000000000003";
+
+    it("allows users to create correspondence for their own department", () => {
+      expect(
+        canCreateForDepartment(otherDepartmentId, otherDepartmentId, []),
+      ).toBe(true);
+    });
+
+    it("allows ministry-wide creators to select any department", () => {
+      expect(
+        canCreateForDepartment(otherDepartmentId, homeDepartmentId, [
+          "correspondence:create:any",
+        ]),
+      ).toBe(true);
+    });
+
+    it("allows department managers to create correspondence across departments", () => {
+      expect(
+        canCreateForDepartment(otherDepartmentId, homeDepartmentId, [
+          "departments:manage",
+        ]),
+      ).toBe(true);
+    });
+
+    it("rejects department users creating records for a different department", () => {
+      expect(
+        canCreateForDepartment(otherDepartmentId, homeDepartmentId, []),
+      ).toBe(false);
+    });
   });
 
   describe("department correspondence access", () => {

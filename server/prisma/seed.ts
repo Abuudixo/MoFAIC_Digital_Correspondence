@@ -13,6 +13,7 @@ const permissions = [
   "users:manage",
   "departments:manage",
   "correspondence:create",
+  "correspondence:create:any",
   "correspondence:read:any",
   "correspondence:read:department",
   "correspondence:read:assigned",
@@ -54,12 +55,15 @@ async function main() {
     ADMIN: [
       "users:manage",
       "departments:manage",
+      "correspondence:create",
       "audit:read",
       "workflow:manage",
       "retention:manage",
       "reports:read",
     ],
     PERMANENT_SECRETARY: [
+      "correspondence:create",
+      "correspondence:create:any",
       "correspondence:read:any",
       "correspondence:update",
       "correspondence:assign",

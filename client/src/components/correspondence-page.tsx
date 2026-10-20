@@ -43,6 +43,17 @@ export function CorrespondencePage({ token }: { token: string }) {
   const [formError, setFormError] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
   const references = useReferenceData(token);
+  const me = useQuery({
+    queryKey: ["me"],
+    queryFn: async () =>
+      api<{
+        user: {
+          department: { id: string } | null;
+          permissions: string[];
+        };
+      }>("/auth/me").then((response) => response.user),
+    enabled: Boolean(token),
+  });
   const queryClient = useQueryClient();
   const correspondence = useQuery({
     queryKey: [
@@ -151,6 +162,26 @@ export function CorrespondencePage({ token }: { token: string }) {
   };
 
   const departments = references.data?.departments ?? [];
+  const permissions = me.data?.permissions ?? [];
+  const canCreate = permissions.includes("correspondence:create");
+  const canCreateForAnyDepartment =
+    permissions.includes("correspondence:create:any") ||
+    permissions.includes("departments:manage");
+  const registrationDepartments = canCreateForAnyDepartment
+    ? departments
+    : departments.filter(
+        (department) => department.id === me.data?.department?.id,
+      );
+  const allowedClassifications = [
+    "NORMAL",
+    ...(permissions.includes("correspondence:read:confidential")
+      ? ["CONFIDENTIAL"]
+      : []),
+    ...(permissions.includes("correspondence:read:restricted")
+      ? ["RESTRICTED"]
+      : []),
+    ...(permissions.includes("correspondence:read:secret") ? ["SECRET"] : []),
+  ];
   return (
     <section className="space-y-5">
       <PageHeading
@@ -158,13 +189,15 @@ export function CorrespondencePage({ token }: { token: string }) {
         title="Correspondence register"
         description="Search, review and register correspondence using the controlled values and fields configured by the Ministry."
       >
-        <Button
-          onClick={() => setShowRegistration(true)}
-          disabled={!departments.length}
-        >
-          <Plus className="h-4 w-4" />
-          Register correspondence
-        </Button>
+        {canCreate ? (
+          <Button
+            onClick={() => setShowRegistration(true)}
+            disabled={!registrationDepartments.length}
+          >
+            <Plus className="h-4 w-4" />
+            Register correspondence
+          </Button>
+        ) : null}
       </PageHeading>
       {formError && !showRegistration ? (
         <div role="alert" className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -417,7 +450,7 @@ export function CorrespondencePage({ token }: { token: string }) {
             <Field label="Responsible unit" required>
               <SelectField
                 name="departmentId"
-                items={departments.map((department) => ({
+                items={registrationDepartments.map((department) => ({
                   value: department.id,
                   label: department.name,
                 }))}
@@ -441,7 +474,9 @@ export function CorrespondencePage({ token }: { token: string }) {
             <Field label="Classification">
               <SelectField
                 name="confidentiality"
-                values={references.data?.classifications ?? []}
+                values={allowedClassifications.filter((classification) =>
+                  references.data?.classifications.includes(classification),
+                )}
               />
             </Field>
             <Field label="Date received / drafted">
