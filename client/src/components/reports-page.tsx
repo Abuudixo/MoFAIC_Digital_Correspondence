@@ -23,6 +23,9 @@ export function ReportsPage({ token }: { token: string }) {
   });
   const canReadArchive =
     me.data?.permissions.includes("correspondence:read:archive") ?? false;
+  const canReviewRetention =
+    me.data?.permissions.includes("reports:read") &&
+    me.data?.permissions.includes("correspondence:read:archive");
   const summary = useQuery({
     queryKey: ["summary"],
     queryFn: async () => {
@@ -82,7 +85,7 @@ export function ReportsPage({ token }: { token: string }) {
           retentionCategory?: string | null;
         }>;
       }>("/reports/retention-review"),
-    enabled: Boolean(token),
+    enabled: Boolean(token && canReviewRetention),
   });
   const totals = summary.data?.totals ?? {};
   const pendingActions = actionSummary.data?.byStatus
@@ -292,51 +295,53 @@ export function ReportsPage({ token }: { token: string }) {
           </CardContent>
         </Card>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Retention review</CardTitle>
-          <CardDescription>
-            Records returned by the server retention-review report.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {retention.isError ? (
-            <QueryError message={retention.error.message} />
-          ) : null}
-          {retention.isLoading ? (
-            <Skeleton className="h-20 w-full" />
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Reference</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Retention category</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(retention.data?.items ?? []).map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        {item.referenceNumber}
-                      </TableCell>
-                      <TableCell>{item.subject}</TableCell>
-                      <TableCell>{item.retentionCategory ?? "—"}</TableCell>
+      {canReviewRetention ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Retention review</CardTitle>
+            <CardDescription>
+              Records returned by the server retention-review report.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {retention.isError ? (
+              <QueryError message={retention.error.message} />
+            ) : null}
+            {retention.isLoading ? (
+              <Skeleton className="h-20 w-full" />
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Retention category</TableHead>
                     </TableRow>
-                  ))}
-                  {!retention.data?.items.length ? (
-                    <EmptyRow
-                      colSpan={3}
-                      message="No records require retention review."
-                    />
-                  ) : null}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {(retention.data?.items ?? []).map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">
+                          {item.referenceNumber}
+                        </TableCell>
+                        <TableCell>{item.subject}</TableCell>
+                        <TableCell>{item.retentionCategory ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                    {!retention.data?.items.length ? (
+                      <EmptyRow
+                        colSpan={3}
+                        message="No records require retention review."
+                      />
+                    ) : null}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
     </section>
   );
 }
