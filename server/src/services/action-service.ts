@@ -67,6 +67,12 @@ export async function createActionItem(
       "Actions cannot be added to closed or archived correspondence.",
     );
   }
+  if (
+    input.departmentId !== actor.departmentId &&
+    !actor.permissions.includes("correspondence:assign:any")
+  ) {
+    throw new AppError(403, "You can only assign actions within your own department.");
+  }
   return prisma.$transaction(async (tx) => {
     const department = await tx.department.findFirst({
       where: { id: input.departmentId, isActive: true },
@@ -142,10 +148,16 @@ export async function updateActionItem(
     throw new AppError(404, "Action item was not found.");
   }
   await requireVisibleCorrespondence(existing.correspondenceId, actor);
+  const canManageDepartmentAction =
+    actor.permissions.includes("correspondence:assign") &&
+    existing.departmentId === actor.departmentId;
+  const canManageAnyDepartmentAction = actor.permissions.includes(
+    "correspondence:assign:any",
+  );
   if (
     existing.assignedToId !== actor.id &&
-    existing.departmentId !== actor.departmentId &&
-    !actor.permissions.includes("correspondence:assign")
+    !canManageDepartmentAction &&
+    !canManageAnyDepartmentAction
   ) {
     throw new AppError(403, "You are not responsible for this action item.");
   }

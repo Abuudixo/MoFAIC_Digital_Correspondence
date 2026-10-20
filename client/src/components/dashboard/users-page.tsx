@@ -31,7 +31,7 @@ type ManagedUser = {
   createdAt: string;
 };
 
-type RoleOption = { id: string; name: string };
+type RoleOption = { id: string; name: string; description: string | null };
 type DepartmentOption = { id: string; name: string; code: string };
 type NewUser = {
   name: string;
@@ -48,6 +48,16 @@ const emptyUser: NewUser = {
   roleId: "",
   departmentId: "",
 };
+
+function roleLabel(name: string) {
+  const labels: Record<string, string> = {
+    ADMIN: "System Administrator",
+    PERMANENT_SECRETARY: "Permanent Secretary",
+    DEPARTMENT_HEAD: "Department Head",
+    STAFF: "Department Staff / Office Secretary",
+  };
+  return labels[name] ?? name;
+}
 
 export function UsersPage({
   isAdmin,
@@ -88,6 +98,8 @@ export function UsersPage({
   });
 
   const optionsError = rolesQuery.error ?? departmentsQuery.error;
+  const selectedRole = rolesQuery.data?.find((role) => role.id === form.roleId);
+  const departmentRequired = selectedRole?.name !== "PERMANENT_SECRETARY";
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     createUser.mutate(form);
@@ -100,20 +112,20 @@ export function UsersPage({
         title="User management"
         description={
           isAdmin
-            ? "Create department directors and review all ministry accounts."
-            : "Create users for your department and review its accounts."
+            ? "Create Permanent Secretary, Department Head, and Staff accounts."
+            : "Review department accounts."
         }
       />
 
       <Card>
         <CardHeader>
           <CardTitle>
-            {isAdmin ? "Create a director" : "Create a department user"}
+            {isAdmin ? "Create a user" : "Department users"}
           </CardTitle>
           <CardDescription>
             {isAdmin
-              ? "Assign the director to the department they manage."
-              : `New accounts will be assigned to ${department?.name ?? "your department"}.`}
+              ? "Assign a department to Department Head and Staff accounts. The Permanent Secretary account is ministry-wide."
+              : `Accounts are assigned to ${department?.name ?? "your department"}.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -192,10 +204,18 @@ export function UsersPage({
                 required
                 value={form.roleId}
                 onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    roleId: event.target.value,
-                  }))
+                  setForm((current) => {
+                    const role = rolesQuery.data?.find(
+                      (option) => option.id === event.target.value,
+                    );
+                    return {
+                      ...current,
+                      roleId: event.target.value,
+                      ...(role?.name === "PERMANENT_SECRETARY"
+                        ? { departmentId: "" }
+                        : {}),
+                    };
+                  })
                 }
                 disabled={rolesQuery.isLoading || rolesQuery.isError}
                 className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-50"
@@ -203,16 +223,16 @@ export function UsersPage({
                 <option value="">Select a role</option>
                 {(rolesQuery.data ?? []).map((role) => (
                   <option key={role.id} value={role.id}>
-                    {role.name}
+                    {roleLabel(role.name)}
                   </option>
                 ))}
               </select>
             </label>
-            {isAdmin ? (
+            {isAdmin && departmentRequired ? (
               <label className="space-y-1.5 text-sm font-medium text-slate-700 sm:col-span-2">
                 Department
                 <select
-                  required
+                  required={departmentRequired}
                   value={form.departmentId}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -257,7 +277,7 @@ export function UsersPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>{isAdmin ? "All users" : "Department users"}</CardTitle>
+          <CardTitle>All users</CardTitle>
           <CardDescription>
             {usersQuery.data
               ? `${usersQuery.data.length} user${usersQuery.data.length === 1 ? "" : "s"}`
@@ -293,7 +313,7 @@ export function UsersPage({
                       {user.name}
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.role.name}</TableCell>
+                    <TableCell>{roleLabel(user.role.name)}</TableCell>
                     <TableCell>
                       {user.department?.name ?? "Not assigned"}
                     </TableCell>

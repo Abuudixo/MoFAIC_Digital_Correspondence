@@ -29,10 +29,11 @@ function canReadClassification(
 ) {
   if (classification === ConfidentialityLevel.NORMAL) {
     return (
-      Boolean(actorDepartmentId) &&
-      actorDepartmentId === correspondenceDepartmentId &&
-      (permissions.includes("correspondence:read:department") ||
-        permissions.includes("correspondence:read:any"))
+      permissions.includes("correspondence:read:any") ||
+      permissions.includes("correspondence:read:assigned") ||
+      (Boolean(actorDepartmentId) &&
+        actorDepartmentId === correspondenceDepartmentId &&
+        permissions.includes("correspondence:read:department"))
     );
   }
   const permission: Record<Exclude<ConfidentialityLevel, "NORMAL">, string> = {
@@ -40,8 +41,7 @@ function canReadClassification(
     RESTRICTED: "correspondence:read:restricted",
     SECRET: "correspondence:read:secret",
   };
-  return permissions.includes("correspondence:read:any") ||
-    permissions.includes(permission[classification]);
+  return permissions.includes(permission[classification]);
 }
 
 function validateClassification(

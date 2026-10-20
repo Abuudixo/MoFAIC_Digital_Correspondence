@@ -16,12 +16,13 @@ export interface DocumentStorage {
 }
 
 export class PrivateLocalDocumentStorage implements DocumentStorage {
-  private readonly root = resolve(env.DOCUMENT_STORAGE_DIR);
+  private readonly root: string;
 
-  constructor() {
-    if (!isAbsolute(env.DOCUMENT_STORAGE_DIR)) {
+  constructor(storageDirectory = env.DOCUMENT_STORAGE_DIR) {
+    if (!isAbsolute(storageDirectory)) {
       throw new Error("Document storage directory must be absolute.");
     }
+    this.root = resolve(storageDirectory);
   }
 
   private pathFor(key: string) {

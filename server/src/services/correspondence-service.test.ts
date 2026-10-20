@@ -50,6 +50,43 @@ describe("formatReferenceNumber", () => {
         ),
       ).toBe(false);
     });
+
+    it("keeps ministry-wide access subject to classification permissions", () => {
+      const record = {
+        confidentiality: ConfidentialityLevel.SECRET,
+        createdById: "00000000-0000-4000-8000-000000000004",
+        assignedToId: null,
+        departmentId: otherDepartmentId,
+      };
+      expect(
+        canRead(record, userId, ["correspondence:read:any"], homeDepartmentId),
+      ).toBe(false);
+      expect(
+        canRead(
+          record,
+          userId,
+          ["correspondence:read:any", "correspondence:read:secret"],
+          homeDepartmentId,
+        ),
+      ).toBe(true);
+    });
+
+    it("does not make classification permission a substitute for assignment or department scope", () => {
+      const record = {
+        confidentiality: ConfidentialityLevel.CONFIDENTIAL,
+        createdById: "00000000-0000-4000-8000-000000000004",
+        assignedToId: null,
+        departmentId: otherDepartmentId,
+      };
+      expect(
+        canRead(
+          record,
+          userId,
+          ["correspondence:read:confidential"],
+          homeDepartmentId,
+        ),
+      ).toBe(false);
+    });
   });
 
   it("rejects invalid years and sequence values", () => {

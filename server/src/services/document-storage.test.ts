@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { AppError } from "../utils/app-error";
-import { detectDocumentType, safeOriginalFileName } from "./document-storage";
+import {
+  detectDocumentType,
+  PrivateLocalDocumentStorage,
+  safeOriginalFileName,
+} from "./document-storage";
 
 describe("document storage validation", () => {
   it("strips directory components and control characters from original names", () => {
@@ -16,6 +23,25 @@ describe("document storage validation", () => {
       extension: ".pdf",
       mimeType: "application/pdf",
     });
+  });
+
+  it("stores and streams back a PDF from private storage", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mofaic-documents-"));
+    const storage = new PrivateLocalDocumentStorage(directory);
+    const bytes = Buffer.from("%PDF-1.7\nsample PDF bytes");
+    try {
+      const { extension } = detectDocumentType("letter.pdf", bytes);
+      const key = await storage.store(bytes, extension);
+      await storage.assertAvailable(key);
+      const chunks: Buffer[] = [];
+      for await (const chunk of storage.open(key)) {
+        chunks.push(Buffer.from(chunk));
+      }
+      expect(Buffer.concat(chunks)).toEqual(bytes);
+      await storage.remove(key);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("rejects non-PDF files and content that does not match a PDF extension", () => {

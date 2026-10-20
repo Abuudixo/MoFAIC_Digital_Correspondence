@@ -269,7 +269,7 @@ export function WorkflowControls({
         </div>
       ) : isAwaitingApproval ? (
         <p className="text-sm text-slate-600">
-          This file is awaiting approval from an authorized director.
+          This file is awaiting approval from an authorized approver.
         </p>
       ) : isTerminal ? (
         <p className="text-sm text-slate-500">

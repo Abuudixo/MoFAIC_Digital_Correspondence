@@ -13,7 +13,14 @@ export const listDepartmentsController: RequestHandler = async (_req, res) => {
 };
 
 export const listDepartmentAssigneesController: RequestHandler = async (req, res) => {
+  if (!req.user) throw new AppError(401, "Authentication required.");
   const departmentId = idSchema.parse(req.params.id);
+  if (
+    departmentId !== req.user.departmentId &&
+    !req.user.permissions.includes("correspondence:assign:any")
+  ) {
+    throw new AppError(403, "You can only list assignees in your own department.");
+  }
   res.json({ items: await listDepartmentAssignees(departmentId) });
 };
 

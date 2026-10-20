@@ -55,7 +55,6 @@ function ensureVisible(
   },
   actor: Actor,
 ) {
-  if (actor.permissions.includes("correspondence:read:any")) return;
   const classificationPermission: Partial<Record<ConfidentialityLevel, string>> = {
     CONFIDENTIAL: "correspondence:read:confidential",
     RESTRICTED: "correspondence:read:restricted",
@@ -66,11 +65,11 @@ function ensureVisible(
     throw new AppError(403, "You cannot access this correspondence.");
   }
   if (record.createdById === actor.id || record.assignedToId === actor.id) return;
+  if (actor.permissions.includes("correspondence:read:any")) return;
   if (
     (record.confidentiality === ConfidentialityLevel.NORMAL &&
       actor.permissions.includes("correspondence:read:department") &&
-      actor.departmentId === record.departmentId) ||
-    (requiredPermission && actor.permissions.includes(requiredPermission))
+      actor.departmentId === record.departmentId)
   ) {
     return;
   }
@@ -114,6 +113,12 @@ export async function assignCorrespondence(
   });
   if (!existing || existing.archivedAt) throw new AppError(404, "Correspondence was not found.");
   ensureVisible(existing, { id: actorId, permissions, departmentId: actorDepartmentId });
+  if (
+    input.departmentId !== actorDepartmentId &&
+    !permissions.includes("correspondence:assign:any")
+  ) {
+    throw new AppError(403, "You can only route correspondence to your own department.");
+  }
 
   return prisma.$transaction(async (tx) => {
     const department = await tx.department.findUnique({
@@ -263,7 +268,7 @@ async function recordTransition(
       fromStep &&
       toStep &&
         fromStep.allowedNextStates.includes(toStatus) &&
-        (!toStep.requiredRole || toStep.requiredRole === actor.role || actor.role === "ADMIN"),
+      (!toStep.requiredRole || toStep.requiredRole === actor.role),
     );
   }
   if (!allowed) {
@@ -530,9 +535,7 @@ export async function listRetentionPolicies() {
 
 export async function listNotifications(actor: Actor & { role?: string }) {
   const where: Prisma.NotificationWhereInput =
-    actor.role === "ADMIN"
-      ? {}
-      : actor.departmentId
+    actor.role === "DEPARTMENT_HEAD" && actor.departmentId
         ? { correspondence: { departmentId: actor.departmentId } }
         : { userId: actor.id };
   return prisma.notification.findMany({

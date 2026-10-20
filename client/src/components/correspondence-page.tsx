@@ -77,6 +77,16 @@ export function CorrespondencePage({ token }: { token: string }) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const attachment = data.get("attachment");
+    if (
+      attachment instanceof File &&
+      attachment.name &&
+      (attachment.size === 0 ||
+        !attachment.name.toLowerCase().endsWith(".pdf") ||
+        attachment.size > 10 * 1024 * 1024)
+    ) {
+      setFormError("Choose a PDF file no larger than 10 MB.");
+      return;
+    }
     const optionalDate = (key: string) => String(data.get(key) ?? "") || null;
     const payload = {
       direction: String(data.get("direction")),
@@ -453,7 +463,7 @@ export function CorrespondencePage({ token }: { token: string }) {
                 accept=".pdf,application/pdf"
               />
               <span className="mt-1 block text-xs font-normal text-slate-500">
-                Optional. Attach a PDF to this correspondence record.
+                Optional. PDF only, up to 10 MB.
               </span>
             </Field>
             <Field label="Notes" className="sm:col-span-2">

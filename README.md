@@ -49,8 +49,8 @@ API binds to loopback by default. Run `npm test`, `npm run lint`, and
 for local development only; use PostgreSQL for shared or production
 environments.
 
-In development, the seed includes fictional Protocol and Finance directors and
-officers, four sample correspondence records, and department notifications.
+In development, the seed includes fictional Protocol and Finance department
+heads and staff, four sample correspondence records, and department notifications.
 Demo accounts use `Demo-Only-2026!` with emails
 `director.protocol@example.test`, `officer.protocol@example.test`,
 `director.finance@example.test`, and `officer.finance@example.test`. These
@@ -69,13 +69,13 @@ Production and standard PostgreSQL environments should continue to use
   document types, classifications, correspondence statuses, priorities, action
   statuses, retention actions, and active units. New reference numbers use
   `COR-YYYY-####`; existing record identifiers are preserved.
-- Department directors see a department-scoped dashboard with approval and
+- Department Heads see a department-scoped dashboard with approval and
   overdue queues, due dates, officer workload, open-file age, and department
   notifications. Administrators see notifications across all departments.
   The seeded departments follow the 15 units in the workbook's `Lists` sheet.
-- Department users share the department dashboard and operational permissions
-  but cannot approve or reject correspondence; department data remains scoped
-  to their assigned unit.
+- Staff access is scoped to correspondence they registered or were assigned;
+  Department Heads see their own department. Both roles are blocked from
+  approving correspondence unless an explicitly delegated permission is added.
 - Correspondence registration captures the workbook's organization, country or
   mission, dates, current action or location, file location, and notes. The
   workflow follows Open → In Progress → Pending Approval → Approved →
@@ -109,7 +109,9 @@ Production and standard PostgreSQL environments should continue to use
   evidence to an action on the same correspondence. `GET
 /api/documents/:documentId/download`
   checks correspondence and document classification before streaming. Previous
-  versions remain intact.
+  versions remain intact. The register form checks the PDF extension and size
+  before creating a correspondence record; the API validates the PDF signature
+  and enforces the same 10 MiB limit.
 - `GET /api/correspondence?search=term&page=1` uses PostgreSQL full-text search
   and indexed, permission-filtered pagination. Set `includeArchived=true` to
   search archived records when authorized.
@@ -119,12 +121,18 @@ Production and standard PostgreSQL environments should continue to use
   retention periods or delete records automatically.
 - `POST /api/workflow-definitions` and `POST /api/retention-policies` configure
   workflow and retention rules using authorized accounts. `GET /api/notifications`
-  exposes notifications across all departments to administrators and only the
-  authenticated user's department notifications to department users.
+  exposes department notifications to Department Heads and only the
+  authenticated user's notifications to other roles.
   `PATCH /api/notifications/:id/read` marks the authenticated user's own
   notification as read.
-- Administrators create department directors. Directors can create and review
-  user accounts only in their own department.
+- The four roles are ADMIN (technical administration), PERMANENT_SECRETARY
+  (ministry-wide, classification-limited oversight), DEPARTMENT_HEAD
+  (department-scoped operations), and STAFF (assigned correspondence and
+  document handling). Administrators can create non-admin role accounts;
+  Permanent Secretary accounts do not require a department assignment.
+  Existing director and department-user accounts are migrated to Department
+  Head and Staff roles respectively; run the database seed after applying
+  migrations to install the corresponding permission sets.
 
 Audit rows are append-only at both application and database levels. Search,
 assignment, workflow decisions, archive operations, document uploads/downloads,
@@ -183,16 +191,15 @@ environment after provisioning. The user-creation API is administrator-only.
 ## API
 
 All API responses use JSON. Register the first authorized user through the
-provisioning process; administrators create directors and directors create
-users in their own departments.
+provisioning process; administrators create Permanent Secretary, Department
+Head, and Staff accounts.
 Authenticate using `POST /api/auth/login` and send the access token as
 `Authorization: Bearer <token>`.
 
 - `GET /api/health` — liveness check.
 - `GET /api/health/ready` — database readiness check.
 - `POST /api/auth/login`, `GET /api/auth/me`.
-- `/api/users` — administrator creation of directors and department-scoped
-  user creation/listing for directors.
+- `/api/users` — administrator creation and listing of ministry user accounts.
 - `GET /api/roles` — role options restricted to the authenticated user manager's
   allowed account types.
 - `/api/departments` — department list and administrator CRUD.

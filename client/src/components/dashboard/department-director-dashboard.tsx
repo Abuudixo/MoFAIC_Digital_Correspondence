@@ -169,8 +169,8 @@ export function DepartmentDirectorDashboard({
             role="alert"
             className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
           >
-            Your director account has no department assigned. Ask an
-            administrator to assign your department before using this dashboard.
+            Your account has no department assigned. Ask an administrator to
+            assign your department before using this dashboard.
           </div>
         ) : null}
 

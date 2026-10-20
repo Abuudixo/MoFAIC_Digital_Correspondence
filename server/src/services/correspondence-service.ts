@@ -44,14 +44,10 @@ export function readableWhere(
   permissions: string[],
   departmentId?: string | null,
 ): Prisma.CorrespondenceWhereInput {
-  if (permissions.includes("correspondence:read:any")) return {};
   const classification: Prisma.CorrespondenceWhereInput[] = [
     { confidentiality: ConfidentialityLevel.NORMAL },
   ];
-  const visibility: Prisma.CorrespondenceWhereInput[] = [
-    { createdById: userId },
-    { assignedToId: userId },
-  ];
+  const visibility: Prisma.CorrespondenceWhereInput[] = [];
   if (permissions.includes("correspondence:read:confidential")) {
     const confidentialScope = {
       confidentiality: ConfidentialityLevel.CONFIDENTIAL,
@@ -68,10 +64,12 @@ export function readableWhere(
     const secretScope = { confidentiality: ConfidentialityLevel.SECRET };
     classification.push(secretScope);
   }
+  if (permissions.includes("correspondence:read:any")) {
+    return { OR: classification };
+  }
+  visibility.push({ createdById: userId }, { assignedToId: userId });
   if (departmentId && permissions.includes("correspondence:read:department")) {
     visibility.push({ departmentId, OR: classification });
-  } else {
-    visibility.push(...classification.slice(1));
   }
   return {
     AND: [{ OR: classification }, { OR: visibility }],
@@ -89,7 +87,6 @@ export function canRead(
   permissions: string[],
   actorDepartmentId?: string | null,
 ) {
-  if (permissions.includes("correspondence:read:any")) return true;
   if (
     record.confidentiality === ConfidentialityLevel.CONFIDENTIAL &&
     !permissions.includes("correspondence:read:confidential")
@@ -110,6 +107,7 @@ export function canRead(
   }
   if (record.createdById === userId || record.assignedToId === userId)
     return true;
+  if (permissions.includes("correspondence:read:any")) return true;
   if (
     Boolean(actorDepartmentId) &&
     actorDepartmentId === record.departmentId &&

@@ -22,13 +22,13 @@ export const managementReportController: RequestHandler = async (req, res) => {
   const filters = reportSchema.parse(req.query);
   if (
     filters.departmentDashboard &&
-    (!["DIRECTOR", "DEPARTMENT_USER"].includes(req.user?.role ?? "") ||
+    (req.user?.role !== "DEPARTMENT_HEAD" ||
       !actor.departmentId ||
       filters.departmentId !== actor.departmentId)
   ) {
     throw new AppError(
       403,
-      "Department dashboard data is available only to department directors and users for their assigned department.",
+      "Department dashboard data is available only to the department head for their assigned department.",
     );
   }
   res.json({ report: await getManagementReport(filters, actor) });

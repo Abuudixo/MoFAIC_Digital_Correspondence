@@ -10,7 +10,6 @@ import { workbookListsController } from "../controllers/list-controller";
 import { prisma } from "../config/prisma";
 import {
   authenticate,
-  requireAnyPermissions,
   requirePermissions,
 } from "../middleware/authenticate";
 import {
@@ -84,19 +83,19 @@ apiRouter.get("/lists", authenticate, workbookListsController);
 apiRouter.get(
   "/users",
   authenticate,
-  requireAnyPermissions("users:manage", "users:manage:department"),
+  requirePermissions("users:manage"),
   listUsersController,
 );
 apiRouter.post(
   "/users",
   authenticate,
-  requireAnyPermissions("users:manage", "users:manage:department"),
+  requirePermissions("users:manage"),
   createUserController,
 );
 apiRouter.get(
   "/roles",
   authenticate,
-  requireAnyPermissions("users:manage", "users:manage:department"),
+  requirePermissions("users:manage"),
   listRolesController,
 );
 

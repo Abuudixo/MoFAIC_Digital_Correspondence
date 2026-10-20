@@ -165,13 +165,12 @@ export function DashboardSession({
     },
     enabled: Boolean(token),
   });
-  const isDepartmentDashboardUser = ["DIRECTOR", "DEPARTMENT_USER"].includes(
+  const isDepartmentDashboardUser = ["DEPARTMENT_HEAD", "STAFF"].includes(
     meQuery.data?.role.name ?? "",
   );
+  const isDepartmentHead = meQuery.data?.role.name === "DEPARTMENT_HEAD";
   const isAdmin = meQuery.data?.role.name === "ADMIN";
-  const canManageUsers =
-    isAdmin ||
-    (meQuery.data?.permissions.includes("users:manage:department") ?? false);
+  const canManageUsers = isAdmin;
   const canApprove =
     meQuery.data?.permissions.includes("correspondence:approve") ?? false;
   const departmentId = isDepartmentDashboardUser
@@ -180,8 +179,8 @@ export function DashboardSession({
   const departmentQuery = departmentId
     ? `&departmentId=${encodeURIComponent(departmentId)}`
     : "";
-  const directorDashboardQuery =
-    isDepartmentDashboardUser && departmentId
+  const departmentDashboardQuery =
+    isDepartmentHead && departmentId
       ? "&departmentDashboard=true"
       : "";
   const scopedQueriesEnabled = Boolean(
@@ -192,7 +191,7 @@ export function DashboardSession({
     queryKey: ["summary", isDepartmentDashboardUser ? departmentId : "all"],
     queryFn: async () => {
       const response = await api<{ report: DashboardSummary }>(
-        `/reports/summary?includeArchived=false${departmentQuery}${directorDashboardQuery}`,
+        `/reports/summary?includeArchived=false${departmentQuery}${departmentDashboardQuery}`,
       );
       return response.report;
     },
