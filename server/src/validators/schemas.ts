@@ -147,6 +147,20 @@ export const createUserSchema = z.object({
   departmentId: id.nullable().optional(),
 });
 
+export const updateUserSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(320)
+    .transform((value) => value.toLowerCase()),
+  roleId: id,
+  departmentId: id.nullable(),
+  isActive: z.boolean(),
+  password: z.string().min(12).max(128).optional(),
+});
+
 export const createDepartmentSchema = z.object({
   name: z.string().trim().min(1).max(160),
   code: z

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { api } from "../../api";
 import { PageHeading } from "../workspace-shared";
 import { Badge } from "../ui/badge";
@@ -11,6 +12,13 @@ import {
   CardHeader,
   CardTitle,
 } from "../ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { Input } from "../ui/input";
 import {
   Table,
@@ -40,6 +48,10 @@ type NewUser = {
   roleId: string;
   departmentId: string;
 };
+type UserEdit = Omit<NewUser, "password"> & {
+  isActive: boolean;
+  password: string;
+};
 
 const emptyUser: NewUser = {
   name: "",
@@ -68,6 +80,10 @@ export function UsersPage({
 }) {
   const queryClient = useQueryClient();
   const [form, setForm] = React.useState<NewUser>(emptyUser);
+  const [createdUser, setCreatedUser] = React.useState<ManagedUser | null>(null);
+  const [editingUser, setEditingUser] = React.useState<ManagedUser | null>(null);
+  const [editForm, setEditForm] = React.useState<UserEdit | null>(null);
+  const [updateMessage, setUpdateMessage] = React.useState("");
   const usersQuery = useQuery({
     queryKey: ["users"],
     queryFn: async () => (await api<{ items: ManagedUser[] }>("/users")).items,
@@ -91,8 +107,38 @@ export function UsersPage({
           departmentId: input.departmentId || null,
         }),
       }),
-    onSuccess: async () => {
+    onSuccess: async ({ user }) => {
       setForm(emptyUser);
+      setCreatedUser(user);
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+  const updateUser = useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: UserEdit;
+    }) =>
+      api<{ user: ManagedUser }>(`/users/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(
+          input.password
+            ? { ...input, departmentId: input.departmentId || null }
+            : {
+                name: input.name,
+                email: input.email,
+                roleId: input.roleId,
+                departmentId: input.departmentId || null,
+                isActive: input.isActive,
+              },
+        ),
+      }),
+    onSuccess: async ({ user }) => {
+      setEditingUser(null);
+      setEditForm(null);
+      setUpdateMessage(`${user.name} was updated successfully.`);
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
   });
@@ -103,6 +149,25 @@ export function UsersPage({
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     createUser.mutate(form);
+  };
+  const openEditDialog = (user: ManagedUser) => {
+    setUpdateMessage("");
+    updateUser.reset();
+    setEditingUser(user);
+    setEditForm({
+      name: user.name,
+      email: user.email,
+      roleId: user.role.id,
+      departmentId: user.department?.id ?? "",
+      isActive: user.isActive,
+      password: "",
+    });
+  };
+  const submitEdit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (editingUser && editForm) {
+      updateUser.mutate({ id: editingUser.id, input: editForm });
+    }
   };
 
   return (
@@ -142,11 +207,6 @@ export function UsersPage({
               {createUser.error instanceof Error
                 ? createUser.error.message
                 : "The user could not be created."}
-            </p>
-          ) : null}
-          {createUser.isSuccess ? (
-            <p role="status" className="mb-4 text-sm text-emerald-700">
-              User created successfully.
             </p>
           ) : null}
           <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
@@ -275,6 +335,39 @@ export function UsersPage({
         </CardContent>
       </Card>
 
+      <Dialog
+        open={createdUser !== null}
+        onOpenChange={(open) => {
+          if (!open) setCreatedUser(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>User created successfully</DialogTitle>
+            <DialogDescription>
+              The new account is ready to use.
+            </DialogDescription>
+          </DialogHeader>
+          {createdUser ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
+              <p className="font-semibold text-emerald-950">{createdUser.name}</p>
+              <p className="mt-1 text-emerald-800">{createdUser.email}</p>
+              <p className="mt-2 text-emerald-800">
+                {roleLabel(createdUser.role.name)}
+                {createdUser.department
+                  ? ` · ${createdUser.department.name}`
+                  : ""}
+              </p>
+            </div>
+          ) : null}
+          <div className="flex justify-end">
+            <Button type="button" onClick={() => setCreatedUser(null)}>
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle>All users</CardTitle>
@@ -285,6 +378,11 @@ export function UsersPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {updateMessage ? (
+            <p role="status" className="mb-4 text-sm text-emerald-700">
+              {updateMessage}
+            </p>
+          ) : null}
           {usersQuery.isError ? (
             <p role="alert" className="text-sm text-rose-700">
               Could not load users:{" "}
@@ -304,6 +402,7 @@ export function UsersPage({
                   <TableHead>Department</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
+                  {isAdmin ? <TableHead>Actions</TableHead> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -325,6 +424,23 @@ export function UsersPage({
                     <TableCell>
                       {new Date(user.createdAt).toLocaleDateString()}
                     </TableCell>
+                    {isAdmin ? (
+                      <TableCell>
+                        {user.role.name !== "ADMIN" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(user)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Edit
+                          </Button>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))}
               </TableBody>
@@ -334,6 +450,175 @@ export function UsersPage({
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={editingUser !== null}
+        onOpenChange={(open) => {
+          if (!open && !updateUser.isPending) {
+            setEditingUser(null);
+            setEditForm(null);
+            updateUser.reset();
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Edit user</DialogTitle>
+            <DialogDescription>
+              Update this account’s details, role, department, or access status.
+            </DialogDescription>
+          </DialogHeader>
+          {updateUser.isError ? (
+            <p role="alert" className="text-sm text-rose-700">
+              {updateUser.error instanceof Error
+                ? updateUser.error.message
+                : "The user could not be updated."}
+            </p>
+          ) : null}
+          {editForm ? (
+            <form onSubmit={submitEdit} className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-1.5 text-sm font-medium text-slate-700">
+                Full name
+                <Input
+                  required
+                  maxLength={160}
+                  autoComplete="name"
+                  value={editForm.name}
+                  onChange={(event) =>
+                    setEditForm((current) =>
+                      current ? { ...current, name: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+              <label className="space-y-1.5 text-sm font-medium text-slate-700">
+                Email address
+                <Input
+                  required
+                  type="email"
+                  maxLength={320}
+                  autoComplete="email"
+                  value={editForm.email}
+                  onChange={(event) =>
+                    setEditForm((current) =>
+                      current ? { ...current, email: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+              <label className="space-y-1.5 text-sm font-medium text-slate-700">
+                New password
+                <Input
+                  type="password"
+                  minLength={12}
+                  maxLength={128}
+                  autoComplete="new-password"
+                  placeholder="Leave blank to keep current password"
+                  value={editForm.password}
+                  onChange={(event) =>
+                    setEditForm((current) =>
+                      current
+                        ? { ...current, password: event.target.value }
+                        : current,
+                    )
+                  }
+                />
+                <span className="block text-xs font-normal text-slate-500">
+                  Optional. If set, must be at least 12 characters.
+                </span>
+              </label>
+              <label className="space-y-1.5 text-sm font-medium text-slate-700">
+                Role
+                <select
+                  required
+                  value={editForm.roleId}
+                  onChange={(event) =>
+                    setEditForm((current) => {
+                      if (!current) return current;
+                      const role = rolesQuery.data?.find(
+                        (option) => option.id === event.target.value,
+                      );
+                      return {
+                        ...current,
+                        roleId: event.target.value,
+                        ...(role?.name === "PERMANENT_SECRETARY"
+                          ? { departmentId: "" }
+                          : {}),
+                      };
+                    })
+                  }
+                  className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                >
+                  <option value="">Select a role</option>
+                  {(rolesQuery.data ?? []).map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {roleLabel(role.name)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {rolesQuery.data?.find((role) => role.id === editForm.roleId)
+                ?.name !== "PERMANENT_SECRETARY" ? (
+                <label className="space-y-1.5 text-sm font-medium text-slate-700">
+                  Department
+                  <select
+                    required
+                    value={editForm.departmentId}
+                    onChange={(event) =>
+                      setEditForm((current) =>
+                        current
+                          ? { ...current, departmentId: event.target.value }
+                          : current,
+                      )
+                    }
+                    disabled={departmentsQuery.isLoading || departmentsQuery.isError}
+                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-50"
+                  >
+                    <option value="">Select a department</option>
+                    {(departmentsQuery.data ?? []).map((departmentOption) => (
+                      <option key={departmentOption.id} value={departmentOption.id}>
+                        {departmentOption.name} ({departmentOption.code})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={editForm.isActive}
+                  onChange={(event) =>
+                    setEditForm((current) =>
+                      current
+                        ? { ...current, isActive: event.target.checked }
+                        : current,
+                    )
+                  }
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Account is active
+              </label>
+              <div className="flex justify-end gap-2 sm:col-span-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={updateUser.isPending}
+                  onClick={() => {
+                    setEditingUser(null);
+                    setEditForm(null);
+                    updateUser.reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateUser.isPending}>
+                  {updateUser.isPending ? "Saving..." : "Save changes"}
+                </Button>
+              </div>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

@@ -47,18 +47,12 @@ export function LoginScreen({
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/80">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-            MC
-          </div>
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              MoFAIC
-            </div>
-            <div className="text-lg font-semibold text-slate-900">
-              Dashboard
-            </div>
-          </div>
+        <div className="mb-6 flex justify-center">
+          <img
+            src="/mofaic-logo.jpg"
+            alt="Ministry of Foreign Affairs and International Cooperation, Federal Republic of Somalia"
+            className="h-40 w-40 object-contain"
+          />
         </div>
 
         <h1 className="mb-2 text-2xl font-semibold text-slate-900">Sign in</h1>

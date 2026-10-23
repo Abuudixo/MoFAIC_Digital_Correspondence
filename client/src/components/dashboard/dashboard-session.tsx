@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Area,
@@ -88,6 +89,7 @@ import { PersonalProfile } from "./personal-profile";
 import { DepartmentDirectorDashboard } from "./department-director-dashboard";
 import { UsersPage } from "./users-page";
 import { NotificationsPage } from "./notifications-page";
+import { RecordDetails } from "../record-details";
 
 export type DashboardSummary = {
   totals: Record<string, number>;
@@ -123,8 +125,41 @@ export type CorrespondenceItem = {
   status: string;
   dueDate?: string | null;
   priority?: string;
+  dateClosed?: string | null;
   assignedTo?: { id: string; name: string } | null;
 };
+
+const dashboardPagePaths: Record<DashboardPageName, string> = {
+  dashboard: "/",
+  profile: "/profile",
+  users: "/users",
+  notifications: "/notifications",
+  correspondence: "/correspondence",
+  actions: "/actions",
+  archive: "/archive",
+  reports: "/reports",
+};
+
+function pageForPath(pathname: string): DashboardPageName {
+  switch (pathname) {
+    case "/profile":
+      return "profile";
+    case "/users":
+      return "users";
+    case "/notifications":
+      return "notifications";
+    case "/correspondence":
+      return "correspondence";
+    case "/actions":
+      return "actions";
+    case "/archive":
+      return "archive";
+    case "/reports":
+      return "reports";
+    default:
+      return "dashboard";
+  }
+}
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
@@ -169,6 +204,13 @@ export function DashboardSession({
   token: string;
   onSignOut: () => void;
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activePage = pageForPath(location.pathname);
+  const setActivePage = React.useCallback(
+    (page: DashboardPageName) => navigate(dashboardPagePaths[page]),
+    [navigate],
+  );
   const meQuery = useQuery({
     queryKey: ["me"],
     queryFn: async () => {
@@ -301,8 +343,8 @@ export function DashboardSession({
     "all",
   );
   const [search, setSearch] = React.useState("");
-  const [activePage, setActivePage] =
-    React.useState<DashboardPageName>("dashboard");
+  const [selectedCorrespondenceId, setSelectedCorrespondenceId] =
+    React.useState<string | null>(null);
 
   const summary = summaryQuery.data;
   const totals = summary?.totals ?? {};
@@ -394,21 +436,29 @@ export function DashboardSession({
     meQuery.data
   ) {
     return (
-      <DepartmentDirectorDashboard
-        user={meQuery.data}
-        isAdmin={isAdmin}
-        canManageUsers={canManageUsers}
-        canApprove={canApprove}
-        summary={summary}
-        actionSummary={actionQuery.data}
-        correspondence={correspondenceQuery.data ?? []}
-        overdueItems={overdueQuery.data ?? []}
-        notifications={notificationQuery.data ?? []}
-        isLoading={isLoading}
-        errors={dashboardErrors}
-        onPageChange={setActivePage}
-        onSignOut={onSignOut}
-      />
+      <>
+        <DepartmentDirectorDashboard
+          user={meQuery.data}
+          isAdmin={isAdmin}
+          canManageUsers={canManageUsers}
+          canApprove={canApprove}
+          summary={summary}
+          actionSummary={actionQuery.data}
+          correspondence={correspondenceQuery.data ?? []}
+          overdueItems={overdueQuery.data ?? []}
+          notifications={notificationQuery.data ?? []}
+          isLoading={isLoading}
+          errors={dashboardErrors}
+          onPageChange={setActivePage}
+          onOpenCorrespondence={setSelectedCorrespondenceId}
+          onSignOut={onSignOut}
+        />
+        <RecordDetails
+          id={selectedCorrespondenceId}
+          onClose={() => setSelectedCorrespondenceId(null)}
+          token={token}
+        />
+      </>
     );
   }
   return (

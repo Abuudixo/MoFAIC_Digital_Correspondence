@@ -9,6 +9,7 @@ import {
   listCorrespondenceSchema,
   loginSchema,
   reportSchema,
+  updateUserSchema,
 } from "./schemas";
 import { readableWhere } from "../services/correspondence-service";
 
@@ -18,6 +19,25 @@ describe("request validation", () => {
       loginSchema.parse({ email: "  STAFF@EXAMPLE.TEST ", password: "pass" })
         .email,
     ).toBe("staff@example.test");
+  });
+
+  it("normalizes and validates administrator user updates", () => {
+    const user = updateUserSchema.parse({
+      name: "  Ministry Staff  ",
+      email: "  STAFF@EXAMPLE.TEST ",
+      roleId: "00000000-0000-4000-8000-000000000001",
+      departmentId: "00000000-0000-4000-8000-000000000002",
+      isActive: true,
+      password: "New-Password-2026!",
+    });
+    expect(user.name).toBe("Ministry Staff");
+    expect(user.email).toBe("staff@example.test");
+    expect(
+      updateUserSchema.safeParse({ ...user, password: "short" }).success,
+    ).toBe(false);
+    expect(
+      updateUserSchema.safeParse({ ...user, isActive: "yes" }).success,
+    ).toBe(false);
   });
 
   it("rejects direct registration of archived correspondence", () => {

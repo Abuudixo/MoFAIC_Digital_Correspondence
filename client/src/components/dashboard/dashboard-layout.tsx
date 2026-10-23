@@ -115,9 +115,11 @@ function WorkspaceSidebar({
   return (
     <aside className="border-b border-[#0b2037] bg-[#102b49] text-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-20 lg:flex lg:w-64 lg:flex-col lg:border-b-0 lg:border-r">
       <div className="flex items-center gap-3 px-5 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2878b8] text-white shadow-sm">
-          <ClipboardList className="h-5 w-5" />
-        </div>
+        <img
+          src="/mofaic-logo.jpg"
+          alt="Ministry of Foreign Affairs and International Cooperation, Federal Republic of Somalia"
+          className="h-12 w-12 shrink-0 rounded-full bg-white object-cover shadow-sm"
+        />
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
             MOFAIC · WORKSPACE

@@ -53,6 +53,7 @@ import {
   createUserController,
   listRolesController,
   listUsersController,
+  updateUserController,
 } from "../controllers/user-controller";
 
 export const apiRouter = Router();
@@ -91,6 +92,12 @@ apiRouter.post(
   authenticate,
   requirePermissions("users:manage"),
   createUserController,
+);
+apiRouter.patch(
+  "/users/:id",
+  authenticate,
+  requirePermissions("users:manage"),
+  updateUserController,
 );
 apiRouter.get(
   "/roles",

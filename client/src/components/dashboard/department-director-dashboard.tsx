@@ -47,7 +47,7 @@ type DirectorActionSummary = {
   byStatus: Array<{ status: string; count: number }>;
 };
 
-type QueueFilter = "all" | "approval" | "overdue" | "due";
+type QueueFilter = "all" | "approval" | "overdue" | "due" | "closed";
 
 export function DepartmentDirectorDashboard({
   user,
@@ -62,6 +62,7 @@ export function DepartmentDirectorDashboard({
   isLoading,
   errors,
   onPageChange,
+  onOpenCorrespondence,
   onSignOut,
 }: {
   user: DirectorUser;
@@ -76,10 +77,17 @@ export function DepartmentDirectorDashboard({
   isLoading: boolean;
   errors: string[];
   onPageChange: (page: DashboardPageName) => void;
+  onOpenCorrespondence: (id: string) => void;
   onSignOut: () => void;
 }) {
   const [filter, setFilter] = React.useState<QueueFilter>("all");
   const [search, setSearch] = React.useState("");
+  const selectQueueFilter = (nextFilter: QueueFilter) => {
+    setFilter(nextFilter);
+    document
+      .getElementById("dashboard-work-queue")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   const totals = summary?.totals ?? {};
   const groups = summary?.groups;
   const overdueIds = React.useMemo(
@@ -98,7 +106,9 @@ export function DepartmentDirectorDashboard({
           .includes(term));
     const isOpen = item.status !== "CLOSED" && item.status !== "ARCHIVED";
     const matchesFilter =
-      filter === "all"
+      filter === "closed"
+        ? item.status === "CLOSED" && isClosedThisMonth(item.dateClosed)
+        : filter === "all"
         ? isOpen
         : filter === "approval"
           ? isOpen && item.status === "PENDING_APPROVAL"
@@ -211,6 +221,7 @@ export function DepartmentDirectorDashboard({
               icon={<ClipboardCheck className="h-4 w-4" />}
               tone="bg-[#eaf3fb] text-[#286c9f]"
               stripe="bg-[#2878b8]"
+              onClick={() => selectQueueFilter("approval")}
             />
           ) : null}
           <DirectorMetric
@@ -220,6 +231,7 @@ export function DepartmentDirectorDashboard({
             icon={<FolderOpen className="h-4 w-4" />}
             tone="bg-[#e8f5f2] text-[#16877f]"
             stripe="bg-[#1c9c91]"
+            onClick={() => selectQueueFilter("all")}
           />
           <DirectorMetric
             label="Due this week"
@@ -228,6 +240,7 @@ export function DepartmentDirectorDashboard({
             icon={<CalendarClock className="h-4 w-4" />}
             tone="bg-[#edf3f9] text-[#3976a5]"
             stripe="bg-[#548bb9]"
+            onClick={() => selectQueueFilter("due")}
           />
           <DirectorMetric
             label="Overdue"
@@ -236,6 +249,7 @@ export function DepartmentDirectorDashboard({
             icon={<CircleAlert className="h-4 w-4" />}
             tone="bg-[#fff4e7] text-[#d4862b]"
             stripe="bg-[#e39a3b]"
+            onClick={() => selectQueueFilter("overdue")}
           />
           <DirectorMetric
             label="Closed this month"
@@ -244,12 +258,13 @@ export function DepartmentDirectorDashboard({
             icon={<CheckCheck className="h-4 w-4" />}
             tone="bg-[#eaf5ed] text-[#35864d]"
             stripe="bg-[#4b9b5f]"
+            onClick={() => selectQueueFilter("closed")}
           />
         </div>
 
         <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
           <div className="space-y-3">
-            <Card className="min-w-0 rounded-md border-slate-200 shadow-none">
+            <Card id="dashboard-work-queue" className="min-w-0 scroll-mt-4 rounded-md border-slate-200 shadow-none">
               <CardHeader className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="text-base text-[#173653]">
@@ -278,6 +293,7 @@ export function DepartmentDirectorDashboard({
                           : []),
                         ["overdue", "Overdue"],
                         ["due", "Due this week"],
+                        ["closed", "Closed this month"],
                       ] as const
                     ).map(([value, label]) => (
                       <button
@@ -351,7 +367,7 @@ export function DepartmentDirectorDashboard({
                           variant="outline"
                           size="sm"
                           className="w-fit"
-                          onClick={() => onPageChange("correspondence")}
+                          onClick={() => onOpenCorrespondence(item.id)}
                         >
                           Open file
                         </Button>
@@ -545,6 +561,7 @@ function DirectorMetric({
   icon,
   tone,
   stripe,
+  onClick,
 }: {
   label: string;
   value?: number;
@@ -552,11 +569,17 @@ function DirectorMetric({
   icon: React.ReactNode;
   tone: string;
   stripe: string;
+  onClick: () => void;
 }) {
   return (
-    <Card className="overflow-hidden rounded-md border-slate-200 shadow-none">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`${label}: ${typeof value === "number" ? value.toLocaleString() : "loading"}. Show matching files.`}
+      className="group w-full overflow-hidden rounded-md border border-slate-200 bg-white text-left shadow-none transition hover:border-slate-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2878b8] focus-visible:ring-offset-2"
+    >
       <div className={`h-1 w-full ${stripe}`} />
-      <CardContent className="p-3">
+      <div className="p-3">
         <div className="flex items-start justify-between gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
             {label}
@@ -567,8 +590,8 @@ function DirectorMetric({
           {typeof value === "number" ? value.toLocaleString() : "—"}
         </p>
         <p className="mt-0.5 text-[10px] text-slate-500">{hint}</p>
-      </CardContent>
-    </Card>
+      </div>
+    </button>
   );
 }
 
@@ -683,6 +706,16 @@ function isDueWithinWeek(value?: string | null) {
   const end = new Date(today);
   end.setDate(end.getDate() + 7);
   return date >= today && date <= end;
+}
+
+function isClosedThisMonth(value?: string | null) {
+  if (!value) return false;
+  const date = new Date(value);
+  const today = new Date();
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth()
+  );
 }
 
 function humanize(value: string) {

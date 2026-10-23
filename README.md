@@ -199,7 +199,9 @@ Authenticate using `POST /api/auth/login` and send the access token as
 - `GET /api/health` — liveness check.
 - `GET /api/health/ready` — database readiness check.
 - `POST /api/auth/login`, `GET /api/auth/me`.
-- `/api/users` — administrator creation and listing of ministry user accounts.
+- `/api/users` — administrator creation and listing of ministry user accounts;
+  `PATCH /api/users/:id` updates a non-administrator account's name, email,
+  role, department, and active status, and optionally resets its password.
 - `GET /api/roles` — role options restricted to the authenticated user manager's
   allowed account types.
 - `/api/departments` — department list and administrator CRUD.
